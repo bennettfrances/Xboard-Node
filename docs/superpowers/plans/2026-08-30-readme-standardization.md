@@ -1,3 +1,47 @@
+# 中文 README 规范化 Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** 将 `README.md` 重构为中文优先的标准项目说明，并加入可复现、可验证的维护者发布流程。
+
+**Architecture:** 只修改根目录 `README.md`，以 `install.sh`、`cmd/xbctl/main.go`、`.github/workflows/ci.yml`、`config.yml.example`、`Makefile` 和扩展文档为事实来源。README 按安装用户、运维人员、仓库维护者的阅读顺序组织；最终通过静态检查、源码对照、GitHub Release 核对和 dev 分支 CI 验证。
+
+**Tech Stack:** Markdown、Bash 示例、PowerShell 验证命令、Git、GitHub CLI、GitHub Actions
+
+---
+
+## 文件结构
+
+- Modify: `README.md` — 项目唯一入口文档，负责项目介绍、安装、运维、发布和故障排查。
+- Reference only: `install.sh` — 安装器动作、模式、参数、系统要求和默认 `dev` 通道。
+- Reference only: `cmd/xbctl/main.go` — `xbctl` 支持的管理命令。
+- Reference only: `.github/workflows/ci.yml` — CI 触发条件、Job、镜像和 Release 资产。
+- Reference only: `config.yml.example` — 单实例、多实例配置结构。
+- Reference only: `Makefile` — 本地构建命令。
+- Reference only: `docs-custom-routes.md`、`docs-custom-outbounds.md`、`docs-dns-providers.md` — 扩展文档链接。
+- Reference only: `docs/superpowers/specs/2026-08-30-readme-release-workflow-design.md` — 已确认的设计规格和验收标准。
+
+本次不拆分或新增其他用户文档。README 是唯一需要修改的项目文件，避免增加重复维护入口。
+
+### Task 1: 用已确认的中文结构重写 README
+
+**Files:**
+- Modify: `README.md:1-70`
+- Reference: `docs/superpowers/specs/2026-08-30-readme-release-workflow-design.md`
+
+- [ ] **Step 1: 记录当前 README 的基线问题**
+
+Run:
+
+```powershell
+rg -n '^## |^### |^```' README.md
+```
+
+Expected: 输出显示现有 README 只有简短英文结构，并且 `Installer (Linux systemd)` 代码围栏在 `## xbctl` 前没有闭合。
+
+- [ ] **Step 2: 将 README 完整替换为以下内容**
+
+````markdown
 # Xboard-Node
 
 [![CI](https://github.com/bennettfrances/Xboard-Node/actions/workflows/ci.yml/badge.svg?branch=dev)](https://github.com/bennettfrances/Xboard-Node/actions/workflows/ci.yml)
@@ -364,3 +408,205 @@ ghcr.io/bennettfrances/xboard-node:latest
 ## 许可证
 
 本项目按 [Mozilla Public License 2.0](https://www.mozilla.org/MPL/2.0/) 授权。
+````
+
+- [ ] **Step 3: 检查 README 的一级和二级结构**
+
+Run:
+
+```powershell
+rg -n '^# |^## ' README.md
+```
+
+Expected: 只有一个 `# Xboard-Node` 一级标题，二级标题依次为“主要特性、运行要求、快速安装、其他部署方式、安装后管理、配置与多实例、升级与卸载、维护者发布流程、故障排查、扩展文档、许可证”。项目简介和状态徽章位于第一个二级标题之前。
+
+### Task 2: 验证格式、命令、链接和安全性
+
+**Files:**
+- Verify: `README.md`
+- Reference: `install.sh`
+- Reference: `cmd/xbctl/main.go`
+- Reference: `.github/workflows/ci.yml`
+- Reference: `config.yml.example`
+- Reference: `Makefile`
+
+- [ ] **Step 1: 验证 Markdown 代码围栏成对出现**
+
+Run:
+
+```powershell
+$fences = (Select-String -Path README.md -Pattern '^```').Count
+if ($fences % 2 -ne 0) { throw "README code fences are unbalanced: $fences" }
+$fences
+```
+
+Expected: 输出偶数且命令退出码为 0。
+
+- [ ] **Step 2: 验证 README 使用 fork 的安装源、镜像和 Release 资产**
+
+Run:
+
+```powershell
+rg -n 'bennettfrances/Xboard-Node|ghcr.io/bennettfrances/xboard-node|xboard-node-linux-amd64|xboard-node-linux-arm64|xbctl-linux-amd64|xbctl-linux-arm64' README.md
+```
+
+Expected: 安装脚本、Docker 镜像、GitHub CLI 仓库参数和四个资产名全部命中；`compose` 分支的上游镜像差异仅作为明确警告出现。
+
+- [ ] **Step 3: 验证安装和 xbctl 命令都由源码支持**
+
+Run:
+
+```powershell
+rg -n -- '--mode machine|--mode node|--machine-id|--node-id|upgrade|uninstall|--force-reconfigure' install.sh
+rg -n 'FORCE_RECONFIGURE' install.sh
+rg -n 'xbctl status|xbctl list|instance list|instance get|service status|service restart|service logs|bind add-node|bind add-machine|bind remove-node|bind remove-machine|xbctl health|xbctl upgrade|xbctl uninstall' README.md
+rg -n 'xbctl status|xbctl list|instance list|instance get|service status|service.*restart|service.*logs|bind add-node|bind add-machine|bind remove-node|bind remove-machine|xbctl health|xbctl upgrade|xbctl uninstall' cmd/xbctl/main.go
+```
+
+Expected: README 中展示的安装参数和管理命令在 `install.sh` 与 `cmd/xbctl/main.go` 中都有对应实现；同时确认 README 明确说明 `--force-reconfigure` 当前不改变处理逻辑，且 `FORCE_RECONFIGURE` 在 `install.sh` 中只有赋值、没有实际读取。
+
+- [ ] **Step 4: 验证本地文档链接存在**
+
+Run:
+
+```powershell
+@('config.yml.example', 'docs-custom-routes.md', 'docs-custom-outbounds.md', 'docs-dns-providers.md') | ForEach-Object { if (-not (Test-Path $_)) { throw "Missing README target: $_" } }
+```
+
+Expected: 命令无输出并以退出码 0 结束。
+
+- [ ] **Step 5: 验证没有未完成标记，并确认敏感值都使用占位符**
+
+Run:
+
+```powershell
+rg -n 'T[B]D|T[O]DO|F[I]XME|X[X]X' README.md
+```
+
+Expected: `rg` 退出码为 1 且没有输出，表示没有未完成标记。
+
+Run:
+
+```powershell
+rg -n '<PANEL_URL>|<TOKEN>|<MACHINE_ID>|<NODE_ID>|<INSTANCE_ID>' README.md
+```
+
+Expected: 所有涉及面板、Token、机器、节点和实例的操作使用明显占位符；人工复核确认没有真实凭据或生产地址。
+
+- [ ] **Step 6: 验证 Git diff**
+
+Run:
+
+```powershell
+git diff --check
+git diff -- README.md
+git status --short
+```
+
+Expected: `git diff --check` 无错误；diff 只显示 README 规范化改动；工作区只包含 `README.md` 和尚未提交的本计划文件。
+
+### Task 3: 提交 README 和实施计划
+
+**Files:**
+- Commit: `README.md`
+- Commit: `docs/superpowers/plans/2026-08-30-readme-standardization.md`
+
+- [ ] **Step 1: 暂存且只暂存目标文件**
+
+Run:
+
+```powershell
+git add -- README.md docs/superpowers/plans/2026-08-30-readme-standardization.md
+git status --short
+```
+
+Expected: 只有上述两个文件处于 staged 状态；没有无关文件被暂存。
+
+- [ ] **Step 2: 提交文档变更**
+
+Run:
+
+```powershell
+git commit -m "docs: standardize Chinese README and release guide"
+```
+
+Expected: 新提交包含 README 重构和实施计划，提交成功且没有提交无关文件。
+
+- [ ] **Step 3: 验证功能分支干净**
+
+Run:
+
+```powershell
+git status --short
+git log -3 --oneline
+```
+
+Expected: 工作区为空；最近提交依次包含 README 实施、扩展规格和初始规格提交。
+
+### Task 4: 合并到 dev、推送并验证 GitHub
+
+**Files:**
+- Git history only: `codex/readme-release-workflow` → `dev`
+
+- [ ] **Step 1: 获取远端并确认 dev 没有意外分叉**
+
+Run:
+
+```powershell
+git fetch origin
+git rev-list --left-right --count dev...origin/dev
+```
+
+Expected: 输出 `0 0`。若不是 `0 0`，停止合并并先检查远端新提交，不能强制推送。
+
+- [ ] **Step 2: 快进合并功能分支**
+
+Run:
+
+```powershell
+git switch dev
+git merge --ff-only codex/readme-release-workflow
+```
+
+Expected: `dev` 快进到包含规格、计划和 README 的最新提交；不产生合并提交。
+
+- [ ] **Step 3: 推送 dev**
+
+Run:
+
+```powershell
+git push origin dev
+```
+
+Expected: 推送成功，不使用 `--force`。
+
+- [ ] **Step 4: 等待本次 dev CI 完成**
+
+Run:
+
+```powershell
+gh run list --repo bennettfrances/Xboard-Node --workflow CI --branch dev --limit 1
+gh run watch <RUN_ID> --repo bennettfrances/Xboard-Node --exit-status
+```
+
+Expected: 本次推送产生的 CI 完成且结论为 `success`。
+
+- [ ] **Step 5: 核对远端 README 与 dev Release**
+
+Run:
+
+```powershell
+gh api repos/bennettfrances/Xboard-Node/readme?ref=dev --jq '.html_url'
+gh release view dev --repo bennettfrances/Xboard-Node --json tagName,assets --jq '{tag: .tagName, assets: [.assets[].name]}'
+```
+
+Expected: README URL 指向 `dev` 分支；Release tag 为 `dev`，并包含四个 Linux 资产。
+
+## 完成标准
+
+- `README.md` 符合已确认设计规格中的中文优先结构。
+- 安装、管理和发布命令都能在当前脚本或源码中找到依据。
+- README 不包含真实 Token、密码或生产地址。
+- Markdown 围栏、标题、本地链接和 Git diff 检查全部通过。
+- 功能分支以快进方式合并到 `dev` 并正常推送。
+- GitHub Actions 成功，远端 README 可读取，`dev` Release 四个资产完整。
