@@ -30,7 +30,7 @@ const (
 	serviceName            = "xboard-node.service"
 	serviceFilePath        = "/etc/systemd/system/xboard-node.service"
 	defaultInstallRoot     = "/etc/xboard-node"
-	downloadBase           = "https://github.com/cedar2025/xboard-node/releases"
+	downloadBase           = "https://github.com/bennettfrances/Xboard-Node/releases"
 )
 
 var (
@@ -386,7 +386,7 @@ func runUpgrade(args []string) error {
 		return err
 	}
 
-	version := "latest"
+	version := "dev"
 	for i := 0; i < len(args); i++ {
 		if args[i] == "--version" && i+1 < len(args) {
 			version = args[i+1]
@@ -1157,7 +1157,7 @@ func latestInstanceID(instances []*config.Config) string {
 func regenerateServiceFile() error {
 	unit := fmt.Sprintf(`[Unit]
 Description=Xboard Node Backend
-Documentation=https://github.com/cedar2025/xboard-node
+Documentation=https://github.com/bennettfrances/Xboard-Node
 After=network-online.target
 Wants=network-online.target
 
